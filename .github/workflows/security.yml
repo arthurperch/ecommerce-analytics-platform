@@ -1,0 +1,98 @@
+name: Security and Compliance Scan
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install safety for Python dependency scanning
+      run: pip install safety
+
+    - name: Run Python security audit
+      run: |
+        cd api
+        safety check -r requirements.txt --json > safety-report.json || true
+
+    - name: Upload safety report
+      uses: actions/upload-artifact@v3
+      with:
+        name: safety-report
+        path: api/safety-report.json
+
+  terraform-security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Checkov for Terraform security scan
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: terraform/
+        framework: terraform
+        output_format: sarif
+        output_file_path: checkov-report.sarif
+
+    - name: Upload Checkov scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: checkov-report.sarif
+
+  infrastructure-compliance:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Run AWS Config compliance check
+      run: |
+        # Check for required AWS Config rules
+        aws configservice describe-compliance-by-config-rule \
+          --config-rule-names \
+            "encrypted-volumes" \
+            "rds-storage-encrypted" \
+            "s3-bucket-ssl-requests-only" \
+          --output table || echo "Some compliance rules not configured"
+
+    - name: Check CloudTrail status
+      run: |
+        aws cloudtrail describe-trails --output table
+        aws cloudtrail get-trail-status --name $(aws cloudtrail describe-trails --query 'trailList[0].Name' --output text) || echo "CloudTrail not configured"

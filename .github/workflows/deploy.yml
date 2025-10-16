@@ -1,0 +1,358 @@
+name: Deploy E-commerce Analytics Platform
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - prod
+      destroy_infrastructure:
+        description: 'Destroy infrastructure instead of deploying'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT_NAME: ecommerce-analytics
+  ECR_REPOSITORY: ecommerce-analytics-api
+
+jobs:
+  # Security and code quality checks
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Test the API
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpassword
+          MYSQL_DATABASE: test_analytics
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        cd api
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Wait for MySQL
+      run: |
+        while ! mysqladmin ping -h"127.0.0.1" --silent; do
+          sleep 1
+        done
+
+    - name: Run tests
+      env:
+        DATABASE_URL: mysql://testuser:testpass@localhost:3306/test_analytics
+        ENVIRONMENT: test
+      run: |
+        cd api
+        pytest test_main.py -v --tb=short
+
+    - name: Generate test coverage report
+      env:
+        DATABASE_URL: mysql://testuser:testpass@localhost:3306/test_analytics
+      run: |
+        cd api
+        pip install pytest-cov
+        pytest test_main.py --cov=main --cov-report=xml --cov-report=html
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./api/coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  # Build and push Docker image
+  build:
+    needs: [security-scan, test]
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: ./api
+        file: ./api/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+    - name: Scan Docker image for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-image-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-image-results.sarif'
+
+  # Deploy infrastructure
+  deploy:
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.0
+
+    - name: Determine environment
+      id: env
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "environment=prod" >> $GITHUB_OUTPUT
+        else
+          echo "environment=staging" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Terraform Init
+      working-directory: terraform
+      run: terraform init
+
+    - name: Terraform Plan
+      working-directory: terraform
+      env:
+        TF_VAR_aws_region: ${{ env.AWS_REGION }}
+        TF_VAR_project_name: ${{ env.PROJECT_NAME }}
+        TF_VAR_environment: ${{ steps.env.outputs.environment }}
+        TF_VAR_container_image: ${{ needs.build.outputs.image-tag }}
+        TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      run: terraform plan -out=tfplan
+
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+      working-directory: terraform
+      env:
+        TF_VAR_aws_region: ${{ env.AWS_REGION }}
+        TF_VAR_project_name: ${{ env.PROJECT_NAME }}
+        TF_VAR_environment: ${{ steps.env.outputs.environment }}
+        TF_VAR_container_image: ${{ needs.build.outputs.image-tag }}
+        TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+      run: terraform apply -auto-approve tfplan
+
+    - name: Get Terraform Outputs
+      id: terraform-outputs
+      working-directory: terraform
+      run: |
+        echo "api_url=$(terraform output -raw api_gateway_stage_url)" >> $GITHUB_OUTPUT
+        echo "load_balancer_dns=$(terraform output -raw load_balancer_dns_name)" >> $GITHUB_OUTPUT
+
+    - name: Update deployment status
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+          const sha = context.sha;
+          const environment = '${{ steps.env.outputs.environment }}';
+          const apiUrl = '${{ steps.terraform-outputs.outputs.api_url }}';
+          
+          await github.rest.repos.createDeploymentStatus({
+            owner,
+            repo,
+            deployment_id: context.payload.deployment?.id || 0,
+            state: 'success',
+            environment,
+            environment_url: apiUrl,
+            description: `Deployed to ${environment}`,
+            auto_inactive: false
+          });
+
+  # Post-deployment tests
+  integration-test:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install test dependencies
+      run: |
+        pip install requests pytest
+
+    - name: Wait for service to be ready
+      run: |
+        echo "Waiting for service to be ready..."
+        for i in {1..30}; do
+          if curl -f "${{ needs.deploy.outputs.api_url }}/health" >/dev/null 2>&1; then
+            echo "Service is ready!"
+            break
+          fi
+          echo "Attempt $i/30 - Service not ready yet..."
+          sleep 10
+        done
+
+    - name: Run integration tests
+      env:
+        API_BASE_URL: ${{ needs.deploy.outputs.api_url }}
+      run: |
+        cd tests
+        python -m pytest integration_test.py -v
+
+  # Performance testing
+  performance-test:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run load test
+      uses: grafana/k6-action@v0.3.1
+      with:
+        filename: tests/load-test.js
+      env:
+        API_BASE_URL: ${{ needs.deploy.outputs.api_url }}
+
+  # Notify deployment results
+  notify:
+    needs: [deploy, integration-test]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify Slack on success
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#deployments'
+        message: |
+          ✅ E-commerce Analytics Platform deployed successfully!
+          Environment: ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+          API URL: ${{ needs.deploy.outputs.api_url }}
+          Commit: ${{ github.sha }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Notify Slack on failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#deployments'
+        message: |
+          ❌ E-commerce Analytics Platform deployment failed!
+          Environment: ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+          Commit: ${{ github.sha }}
+          Check the logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

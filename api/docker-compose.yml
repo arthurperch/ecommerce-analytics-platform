@@ -1,0 +1,70 @@
+# Docker Compose for local development and testing
+version: '3.8'
+
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: ecommerce-analytics-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: analytics
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - analytics-network
+
+  # API Service
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce-analytics-api
+    environment:
+      DATABASE_URL: mysql://appuser:apppassword@db:3306/analytics
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    networks:
+      - analytics-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-analytics-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - analytics-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+
+networks:
+  analytics-network:
+    driver: bridge
