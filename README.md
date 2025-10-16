@@ -393,13 +393,6 @@ aws ecs describe-services --cluster cluster-name --services service-name
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📞 Support
-
-For support and questions:
-- 📧 Email: support@yourcompany.com
-- 💬 Slack: #ecommerce-analytics
-- 📖 Documentation: [docs.yourcompany.com](https://docs.yourcompany.com)
-- 🐛 Issues: [GitHub Issues](https://github.com/your-username/ecommerce-analytics-platform/issues)
 
 ## 🙏 Acknowledgments
 
@@ -409,5 +402,3 @@ For support and questions:
 - Open source security tools (Trivy, Checkov) for keeping us secure
 
 ---
-
-**Built with ❤️ for modern e-commerce businesses**
