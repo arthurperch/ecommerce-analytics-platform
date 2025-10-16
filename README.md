@@ -1,10 +1,5 @@
 # E-commerce Analytics Platform
 
-[![Deploy](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/deploy.yml/badge.svg)](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/deploy.yml)
-[![Security Scan](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/security.yml/badge.svg)](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/security.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-## 🚀 Project Overview
 
 The **E-commerce Analytics Platform** is a comprehensive, cloud-native solution built on AWS that provides real-time analytics and insights for e-commerce businesses. This platform demonstrates enterprise-grade architecture, infrastructure as code, CI/CD pipelines, and cloud engineering best practices.
 
@@ -16,43 +11,10 @@ The **E-commerce Analytics Platform** is a comprehensive, cloud-native solution 
 - **High Availability**: Multi-AZ deployment with 99.9% uptime SLA
 - **Security First**: End-to-end encryption, VPC isolation, and compliance-ready architecture
 
-## 🏗️ Architecture
+##  Architecture
 
 ### High-Level Architecture
-
-```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Users/Apps    │    │   API Gateway    │    │   Application   │
-│                 │───▶│                  │───▶│  Load Balancer  │
-│  (Web/Mobile)   │    │ (Rate Limiting)  │    │      (ALB)      │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                                         │
-                       ┌─────────────────────────────────┼─────────────────────────────────┐
-                       │                                 ▼                                 │
-                       │        ┌─────────────────────────────────────────────────────┐    │
-                       │        │              ECS Fargate Cluster                    │    │
-                       │        │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │    │
-                       │        │  │     API     │  │     API     │  │     API     │  │    │
-                       │        │  │  Container  │  │  Container  │  │  Container  │  │    │
-                       │        │  └─────────────┘  └─────────────┘  └─────────────┘  │    │
-                       │        └─────────────────────────────────────────────────────┘    │
-                       │                                 │                                 │
-                       │                                 ▼                                 │
-┌─────────────────┐   │        ┌─────────────────────────────────────────────────────┐    │
-│   CloudWatch    │◀──┼────────│                    VPC                              │    │
-│   (Monitoring)  │   │        │  ┌─────────────┐           ┌─────────────────────┐  │    │
-└─────────────────┘   │        │  │   Private   │           │      Database       │  │    │
-                       │        │  │   Subnets   │───────────│       Subnets       │  │    │
-┌─────────────────┐   │        │  └─────────────┘           └─────────────────────┘  │    │
-│     Lambda      │◀──┼────────│         │                             │             │    │
-│  (Functions)    │   │        │         ▼                             ▼             │    │
-└─────────────────┘   │        │  ┌─────────────┐           ┌─────────────────────┐  │    │
-                       │        │  │   Public    │           │    RDS MySQL        │  │    │
-                       │        │  │   Subnets   │           │    (Multi-AZ)       │  │    │
-                       │        │  └─────────────┘           └─────────────────────┘  │    │
-                       │        └─────────────────────────────────────────────────────┘    │
-                       └─────────────────────────────────────────────────────────────────────┘
-```
+<img width="1024" height="1024" alt="e6999dfc-bf0f-4041-821f-39737d01b865" src="https://github.com/user-attachments/assets/708bca28-6f50-48ab-85e4-2446c3995f28" />
 
 ### Technology Stack
 
@@ -431,13 +393,6 @@ aws ecs describe-services --cluster cluster-name --services service-name
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📞 Support
-
-For support and questions:
-- 📧 Email: support@yourcompany.com
-- 💬 Slack: #ecommerce-analytics
-- 📖 Documentation: [docs.yourcompany.com](https://docs.yourcompany.com)
-- 🐛 Issues: [GitHub Issues](https://github.com/your-username/ecommerce-analytics-platform/issues)
 
 ## 🙏 Acknowledgments
 
@@ -447,5 +402,3 @@ For support and questions:
 - Open source security tools (Trivy, Checkov) for keeping us secure
 
 ---
-
-**Built with ❤️ for modern e-commerce businesses**
