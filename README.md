@@ -1,9 +1,6 @@
 # E-commerce Analytics Platform
 
 
-## 🚀 Project Overview
-<img width="1024" height="1536" alt="4258a42b-356e-4b2a-adcf-b33cacae5b8d" src="https://github.com/user-attachments/assets/3bae29bc-b3a4-4d18-9dd1-b9c908b7d6c0" />
-
 The **E-commerce Analytics Platform** is a comprehensive, cloud-native solution built on AWS that provides real-time analytics and insights for e-commerce businesses. This platform demonstrates enterprise-grade architecture, infrastructure as code, CI/CD pipelines, and cloud engineering best practices.
 
 ### Business Value
