@@ -1,7 +1,6 @@
 # E-commerce Analytics Platform
 
-[![Deploy](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/deploy.yml/badge.svg)](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/deploy.yml)
-[![Security Scan](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/security.yml/badge.svg)](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/security.yml)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ## 🚀 Project Overview
 <img width="1024" height="1536" alt="4258a42b-356e-4b2a-adcf-b33cacae5b8d" src="https://github.com/user-attachments/assets/3bae29bc-b3a4-4d18-9dd1-b9c908b7d6c0" />
