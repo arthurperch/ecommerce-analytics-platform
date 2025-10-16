@@ -11,7 +11,7 @@ The **E-commerce Analytics Platform** is a comprehensive, cloud-native solution 
 - **High Availability**: Multi-AZ deployment with 99.9% uptime SLA
 - **Security First**: End-to-end encryption, VPC isolation, and compliance-ready architecture
 
-## 🏗️ Architecture
+##  Architecture
 
 ### High-Level Architecture
 <img width="1024" height="1024" alt="e6999dfc-bf0f-4041-821f-39737d01b865" src="https://github.com/user-attachments/assets/708bca28-6f50-48ab-85e4-2446c3995f28" />
