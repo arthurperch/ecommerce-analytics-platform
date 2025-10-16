@@ -3,7 +3,7 @@
 [![Deploy](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/deploy.yml/badge.svg)](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/deploy.yml)
 [![Security Scan](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/security.yml/badge.svg)](https://github.com/your-username/ecommerce-analytics-platform/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+https://github.com/arthurperch/ecommerce-analytics-platform?tab=readme-ov-file
 ## 🚀 Project Overview
 
 The **E-commerce Analytics Platform** is a comprehensive, cloud-native solution built on AWS that provides real-time analytics and insights for e-commerce businesses. This platform demonstrates enterprise-grade architecture, infrastructure as code, CI/CD pipelines, and cloud engineering best practices.
